@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--api.insecure=true"  # Habilita el panel de administración de Traefik
+      - "--providers.docker=true"  # Habilita el proveedor de Docker
+      - "--entrypoints.web.address=:80"  # Configura el entrypoint para HTTP
+      - "--entrypoints.websecure.address=:443"  # Configura el entrypoint para HTTPS
+      - "--certificatesresolvers.mystagingresolver.acme.tlschallenge=true"  # Usa el desafío TLS
+      - "--certificatesresolvers.mystagingresolver.acme.email=mguazzardo76@gmail.com"  # Tu email
+      - "--certificatesresolvers.mystagingresolver.acme.storage=/letsencrypt/acme.json"  # Almacenamiento de certificados
+      - "--certificatesresolvers.mystagingresolver.acme.httpChallenge.entrypoint=web"  # Configura el desafío HTTP
+      - "--certificatesresolvers.mystagingresolver.acme.httpChallenge=true"  # Habilita el desafío HTTP
+      - "--certificatesresolvers.mystagingresolver.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory"  # URL del servidor de staging
+    ports:
+      - "80:80"  # Exponer el puerto 80
+      - "443:443"  # Exponer el puerto 443
+    networks:
+      - traefik-net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"  # Permite a Traefik acceder al socket de Docker
+      - "./letsencrypt:/letsencrypt"  # Volumen para almacenar certificados
+
+  apache:
+    image: httpd:alpine  # Usar la imagen de Apache basada en Alpine
+    volumes:
+      - ./html:/usr/local/apache2/htdocs/  # Montar el directorio HTML
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.apache.rule=Host(`4b51b3d0a51c.mylabserver.com`)"  # Reemplaza con tu dominio
+      - "traefik.http.routers.apache.entrypoints=websecure"  # Usa HTTPS
+      - "traefik.http.routers.apache.tls.certresolver=mystagingresolver"  # Usa el resolver de staging
+
+networks:
+  traefik-net:
+    external: true
